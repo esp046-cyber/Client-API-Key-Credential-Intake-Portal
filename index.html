@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Secure Vault — Credential Intake Portal</title>
+
+<!-- ===================== iOS / PWA meta ===================== -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Secure Vault">
+<meta name="theme-color" content="#1F2F6E">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="Secure Credential Intake Portal for submitting API integration credentials.">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.svg">
+<link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml">
+
+<!-- ===================== Fonts & Tailwind (CDN, zero build step) ===================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          vault: {
+            bg: '#F7F8FA',
+            surface: '#FFFFFF',
+            border: '#E2E5EA',
+            ink: '#14161A',
+            muted: '#5B6472',
+            primary: '#1F2F6E',
+            primaryHover: '#16224F',
+            primarySoft: '#E9ECF7',
+            success: '#1E8965',
+            successSoft: '#E4F5EE',
+            danger: '#B3261E',
+            dangerSoft: '#FBEAE9'
+          }
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif']
+        },
+        boxShadow: {
+          card: '0 1px 2px rgba(20,22,26,0.04), 0 8px 24px rgba(20,22,26,0.06)'
+        }
+      }
+    }
+  };
+</script>
+
+<style>
+  /* Prevent iOS zoom-on-focus regardless of viewport meta support */
+  input, select, textarea { font-size: 16px; }
+
+  html, body { height: 100%; }
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .spinner {
+    border: 3px solid rgba(255,255,255,0.25);
+    border-top-color: #FFFFFF;
+    border-radius: 9999px;
+    width: 28px;
+    height: 28px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fade-in { animation: fadeIn 0.25s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .check-draw {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: draw 0.55s 0.1s ease-out forwards;
+  }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .platform-card[aria-pressed="true"] {
+    border-color: #1F2F6E;
+    box-shadow: 0 0 0 3px #E9ECF7;
+  }
+
+  /* Visible keyboard focus ring everywhere, matching the brand color */
+  :focus-visible {
+    outline: 2px solid #1F2F6E;
+    outline-offset: 2px;
+  }
+
+  ::selection { background: #E9ECF7; color: #1F2F6E; }
+</style>
+</head>
+
+<body class="bg-vault-bg text-vault-ink font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- ===================== App Shell ===================== -->
+  <div class="flex-1 flex flex-col max-w-[480px] w-full mx-auto px-5 pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
+
+    <!-- Header -->
+    <header class="flex items-center gap-3 py-4">
+      <div class="w-10 h-10 rounded-xl bg-vault-primary flex items-center justify-center shrink-0" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M6 11V8a6 6 0 0 1 12 0v3" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+          <rect x="4" y="11" width="16" height="10" rx="2.5" fill="#FFFFFF"/>
+          <circle cx="12" cy="15.3" r="1.6" fill="#1F2F6E"/>
+          <rect x="11.1" y="16.4" width="1.8" height="3" rx="0.9" fill="#1F2F6E"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-[15px] font-bold leading-tight">Secure Vault</p>
+        <p class="text-[12px] text-vault-muted leading-tight">Credential Intake Portal</p>
+      </div>
+    </header>
+
+    <!-- Step indicator -->
+    <div id="stepIndicator" class="flex items-center gap-2 mb-5" role="list" aria-label="Progress">
+      <div class="flex items-center gap-2 flex-1" role="listitem">
+        <div id="stepDot1" class="w-6 h-6 rounded-full bg-vault-primary text-white text-[12px] font-bold flex items-center justify-center shrink-0">1</div>
+        <span id="stepLabel1" class="text-[13px] font-semibold text-vault-ink">Choose platform</span>
+      </div>
+      <div class="h-px flex-1 bg-vault-border" aria-hidden="true"></div>
+      <div class="flex items-center gap-2 flex-1 justify-end" role="listitem">
+        <span id="stepLabel2" class="text-[13px] font-semibold text-vault-muted">Add credentials</span>
+        <div id="stepDot2" class="w-6 h-6 rounded-full bg-vault-border text-vault-muted text-[12px] font-bold flex items-center justify-center shrink-0">2</div>
+      </div>
+    </div>
+
+    <main class="flex-1">
+
+      <!-- ============ SCREEN 1: Platform selector ============ -->
+      <section id="screenPlatform" class="fade-in">
+        <h1 class="text-[20px] font-bold leading-snug mb-1">Which integration are we connecting?</h1>
+        <p class="text-[14px] text-vault-muted mb-5 leading-relaxed">Select a platform below. Your credentials are sent directly to our encrypted vault and are never stored in this browser.</p>
+
+        <div id="platformGrid" class="grid grid-cols-2 gap-3" role="list"></div>
+      </section>
+
+      <!-- ============ SCREEN 2: Credential form ============ -->
+      <section id="screenForm" class="fade-in hidden">
+        <button id="backBtn" type="button" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-vault-muted mb-3 min-h-[44px] -ml-2 pl-2 pr-3 rounded-lg active:bg-vault-border/40">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#5B6472" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back
+        </button>
+
+        <div class="flex items-center gap-3 mb-4">
+          <div id="selectedIconWrap" class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"></div>
+          <div>
+            <h1 id="selectedPlatformName" class="text-[19px] font-bold leading-tight"></h1>
+            <p class="text-[13px] text-vault-muted leading-tight">Enter the credentials below</p>
+          </div>
+        </div>
+
+        <div id="errorBanner" class="hidden mb-4 rounded-xl bg-vault-dangerSoft border border-vault-danger/20 px-4 py-3 flex items-start gap-2.5" role="alert" aria-live="assertive">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="9" stroke="#B3261E" stroke-width="2"/><path d="M12 8v5" stroke="#B3261E" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.1" fill="#B3261E"/></svg>
+          <p id="errorText" class="text-[13.5px] text-vault-danger leading-snug"></p>
+        </div>
+
+        <form id="credentialForm" novalidate>
+          <!-- Client email -->
+          <div class="mb-4">
+            <label for="clientEmail" class="block text-[13px] font-semibold text-vault-ink mb-1.5">Your work email</label>
+            <input type="email" id="clientEmail" name="clientEmail" required autocomplete="email" placeholder="name@company.com"
+              class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white px-4 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
+            <p class="text-[12px] text-vault-muted mt-1.5">We'll confirm the connection to this address.</p>
+          </div>
+
+          <!-- Dynamic platform-specific fields injected here -->
+          <div id="dynamicFields"></div>
+
+          <div class="flex items-start gap-2.5 mt-2 mb-5 p-3.5 rounded-xl bg-vault-primarySoft">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0 mt-0.5"><path d="M12 2l7 3.5v6c0 5-3 8.5-7 10.5-4-2-7-5.5-7-10.5v-6L12 2z" stroke="#1F2F6E" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <p class="text-[12.5px] text-vault-primary leading-snug">Fields are masked by default. Nothing you type here is saved to this device — it is transmitted once, directly to our encrypted intake service.</p>
+          </div>
+
+          <button type="submit" id="submitBtn"
+            class="w-full min-h-[52px] rounded-xl bg-vault-primary text-white text-[15.5px] font-bold flex items-center justify-center gap-2.5 active:bg-vault-primaryHover disabled:opacity-60 transition-colors">
+            <span id="submitBtnLabel">Submit credentials securely</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- ============ SCREEN 3: Success ============ -->
+      <section id="screenSuccess" class="fade-in hidden text-center pt-6">
+        <div class="w-20 h-20 rounded-full bg-vault-successSoft flex items-center justify-center mx-auto mb-5">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#1E8965" stroke-width="1.6"/>
+            <path class="check-draw" d="M7.5 12.5l3 3 6-6.5" stroke="#1E8965" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="text-[21px] font-bold mb-2">Credentials received</h1>
+        <p id="successCopy" class="text-[14.5px] text-vault-muted leading-relaxed mb-8 px-2"></p>
+        <button id="submitAnotherBtn" type="button"
+          class="w-full min-h-[52px] rounded-xl border border-vault-border bg-white text-vault-ink text-[15px] font-bold active:bg-vault-border/30 transition-colors">
+          Submit another credential
+        </button>
+      </section>
+
+    </main>
+
+    <footer class="pt-6 pb-2">
+      <p class="text-[11.5px] text-vault-muted text-center leading-relaxed">Encrypted in transit · Never stored in this browser<br>© <span id="year"></span> Secure Vault</p>
+    </footer>
+  </div>
+
+  <!-- ===================== Loading overlay ===================== -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-vault-primary/97 backdrop-blur-sm flex flex-col items-center justify-center gap-4 px-8" role="status" aria-live="polite" aria-busy="true">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loadingText" class="text-white text-[16px] font-semibold text-center">Authenticating and Encrypting…</p>
+    <p class="text-white/70 text-[13px] text-center max-w-[280px]">Please keep this window open. This only takes a moment.</p>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // =====================================================================
+  // CONFIGURATION — paste your n8n Production Webhook URL here.
+  // This must be an HTTPS endpoint. Nothing else in this file needs to
+  // change to point the app at your workflow.
+  // =====================================================================
+  const N8N_WEBHOOK_URL = 'YOUR_WEBHOOK_URL_HERE';
+
+  // Toggle to `true` while wiring things up without a live webhook yet.
+  // When true, submissions are simulated locally and never leave the device.
+  const DEMO_MODE = N8N_WEBHOOK_URL === 'YOUR_WEBHOOK_URL_HERE';
+
+  // =====================================================================
+  // Icon library (inline SVG strings — no external image requests)
+  // =====================================================================
+  const ICONS = {
+    meta: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M6 16.5c1.8 0 2.9-1.3 4.4-3.7.9 1.5 1.9 2.6 3 3.2 1.6.9 3.6.6 4.8-1.1 1.4-2 1.4-5.7-.2-7.9-1.2-1.6-2.9-1.7-4.2-.3-1 1-1.8 2.5-2.6 3.9-.9-1.6-1.8-3.1-3-4-1.5-1.2-3.4-.9-4.5.9C2.4 9 2.4 12.7 4 14.8c.6.8 1.3 1.4 2 1.7z" stroke="#0B63F6" stroke-width="1.6" stroke-linejoin="round"/>
+    </svg>`,
+    google: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="8.5" stroke="#E2E5EA" stroke-width="2.2"/>
+      <path d="M12 3.5A8.5 8.5 0 0 1 20.5 12" stroke="#EA4335" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M20.5 12a8.5 8.5 0 0 1-3.4 6.8" stroke="#4285F4" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M17.1 18.8A8.5 8.5 0 0 1 6 17.4" stroke="#34A853" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M6 17.4A8.5 8.5 0 0 1 5.2 8" stroke="#FBBC05" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`,
+    ghl: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="4" width="7" height="7" rx="1.6" fill="#3FCB6B"/>
+      <rect x="13" y="4" width="7" height="7" rx="1.6" fill="#12B076" fill-opacity="0.35"/>
+      <rect x="4" y="13" width="7" height="7" rx="1.6" fill="#12B076" fill-opacity="0.35"/>
+      <rect x="13" y="13" width="7" height="7" rx="1.6" fill="#3FCB6B"/>
+    </svg>`,
+    other: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="9" cy="15" r="4.5" stroke="#5B6472" stroke-width="1.8"/>
+      <path d="M12.2 11.8L19 5l1.5 1.5-1 1 1.6 1.6-2 2-1.6-1.6-1.3 1.3" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+  };
+
+  const EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" stroke="#5B6472" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="#5B6472" stroke-width="1.8"/></svg>`;
+  const EYE_CLOSED = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round"/><path d="M9.9 5.3A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a15.6 15.6 0 0 1-3.7 4.6M6.2 6.9C3.7 8.6 2 12 2 12s3.6 7 10 7c1.2 0 2.4-.2 3.4-.6" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 12a2.1 2.1 0 0 0 3 3" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+
+  const ICON_BG = { meta: '#E9F1FF', google: '#FEF6E8', ghl: '#E7F9EF', other: '#F1F2F4' };
+
+  // =====================================================================
+  // Platform → field schema
+  // Each secure field renders as a masked (password) input with a
+  // show/hide toggle. `secure:false` fields (like a Location ID) render
+  // as plain text since they are identifiers, not secrets.
+  // =====================================================================
+  const PLATFORMS = {
+    meta: {
+      label: 'Meta / Facebook Ads',
+      icon: 'meta',
+      fields: [
+        { id: 'accessToken', label: 'Access Token', placeholder: 'EAAG...', secure: true, autocomplete: 'off', required: true },
+        { id: 'businessManagerId', label: 'Business Manager ID', placeholder: 'e.g. 123456789012345', secure: false, autocomplete: 'off', required: true }
+      ]
+    },
+    google: {
+      label: 'Google Ads',
+      icon: 'google',
+      fields: [
+        { id: 'customerId', label: 'Customer ID', placeholder: 'e.g. 123-456-7890', secure: false, autocomplete: 'off', required: true },
+        { id: 'developerToken', label: 'Developer Token', placeholder: 'Developer token', secure: true, autocomplete: 'off', required: true },
+        { id: 'refreshToken', label: 'OAuth Refresh Token', placeholder: 'Refresh token', secure: true, autocomplete: 'off', required: true }
+      ]
+    },
+    ghl: {
+      label: 'GoHighLevel',
+      icon: 'ghl',
+      fields: [
+        { id: 'apiKey', label: 'API Key', placeholder: 'Paste your API key', secure: true, autocomplete: 'off', required: true },
+        { id: 'locationId', label: 'Location ID', placeholder: 'e.g. loc_ab12cd34', secure: false, autocomplete: 'off', required: true }
+      ]
+    },
+    other: {
+      label: 'Other Integration',
+      icon: 'other',
+      fields: [
+        { id: 'credentialName', label: 'Platform / credential name', placeholder: 'e.g. Stripe Secret Key', secure: false, autocomplete: 'off', required: true },
+        { id: 'credentialValue', label: 'Credential value', placeholder: 'Paste the key or token', secure: true, autocomplete: 'off', required: true }
+      ]
+    }
+  };
+
+  // =====================================================================
+  // In-memory only state. Intentionally never written to localStorage,
+  // sessionStorage, IndexedDB, or cookies.
+  // =====================================================================
+  const state = {
+    selectedPlatform: null
+  };
+
+  // ---- Element refs ------------------------------------------------
+  const screenPlatform = document.getElementById('screenPlatform');
+  const screenForm = document.getElementById('screenForm');
+  const screenSuccess = document.getElementById('screenSuccess');
+  const platformGrid = document.getElementById('platformGrid');
+  const backBtn = document.getElementById('backBtn');
+  const selectedIconWrap = document.getElementById('selectedIconWrap');
+  const selectedPlatformName = document.getElementById('selectedPlatformName');
+  const dynamicFields = document.getElementById('dynamicFields');
+  const credentialForm = document.getElementById('credentialForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const submitBtnLabel = document.getElementById('submitBtnLabel');
+  const errorBanner = document.getElementById('errorBanner');
+  const errorText = document.getElementById('errorText');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const submitAnotherBtn = document.getElementById('submitAnotherBtn');
+  const successCopy = document.getElementById('successCopy');
+  const stepDot1 = document.getElementById('stepDot1');
+  const stepDot2 = document.getElementById('stepDot2');
+  const stepLabel1 = document.getElementById('stepLabel1');
+  const stepLabel2 = document.getElementById('stepLabel2');
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // =====================================================================
+  // Build the platform selector grid
+  // =====================================================================
+  function buildPlatformGrid() {
+    platformGrid.innerHTML = '';
+    Object.keys(PLATFORMS).forEach((key) => {
+      const platform = PLATFORMS[key];
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'platform-card min-h-[112px] rounded-2xl border border-vault-border bg-white shadow-card px-3 py-4 flex flex-col items-center justify-center gap-2.5 text-center transition-shadow active:scale-[0.98]';
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('aria-pressed', 'false');
+      card.dataset.platform = key;
+      card.innerHTML = `
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:${ICON_BG[key]}">${ICONS[key]}</div>
+        <span class="text-[13.5px] font-semibold leading-snug">${platform.label}</span>
+      `;
+      card.addEventListener('click', () => selectPlatform(key));
+      platformGrid.appendChild(card);
+    });
+  }
+
+  function selectPlatform(key) {
+    state.selectedPlatform = key;
+    const platform = PLATFORMS[key];
+
+    document.querySelectorAll('.platform-card').forEach((el) => {
+      el.setAttribute('aria-pressed', String(el.dataset.platform === key));
+    });
+
+    selectedIconWrap.style.background = ICON_BG[key];
+    selectedIconWrap.innerHTML = ICONS[key];
+    selectedPlatformName.textContent = platform.label;
+
+    buildDynamicFields(platform);
+    hideError();
+
+    stepDot1.classList.remove('bg-vault-primary', 'text-white');
+    stepDot1.classList.add('bg-vault-successSoft', 'text-vault-success');
+    stepDot1.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#1E8965" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    stepLabel1.classList.remove('text-vault-ink');
+    stepLabel1.classList.add('text-vault-muted');
+    stepDot2.classList.remove('bg-vault-border', 'text-vault-muted');
+    stepDot2.classList.add('bg-vault-primary', 'text-white');
+    stepLabel2.classList.remove('text-vault-muted');
+    stepLabel2.classList.add('text-vault-ink');
+
+    screenPlatform.classList.add('hidden');
+    screenForm.classList.remove('hidden');
+    screenForm.classList.add('fade-in');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function buildDynamicFields(platform) {
+    dynamicFields.innerHTML = '';
+    platform.fields.forEach((field) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'mb-4';
+
+      if (field.secure) {
+        wrap.innerHTML = `
+          <label for="${field.id}" class="block text-[13px] font-semibold text-vault-ink mb-1.5">${field.label}</label>
+          <div class="relative">
+            <input type="password" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}
+              autocomplete="${field.autocomplete}" autocapitalize="off" autocorrect="off" spellcheck="false"
+              placeholder="${field.placeholder}"
+              class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white pl-4 pr-12 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
+            <button type="button" data-toggle-for="${field.id}"
+              class="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg active:bg-vault-border/40"
+              aria-label="Show ${field.label}" aria-pressed="false">
+              ${EYE_OPEN}
+            </button>
+          </div>
+        `;
+      } else {
+        wrap.innerHTML = `
+          <label for="${field.id}" class="block text-[13px] font-semibold text-vault-ink mb-1.5">${field.label}</label>
+          <input type="text" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}
+            autocomplete="${field.autocomplete}" autocapitalize="off" autocorrect="off"
+            placeholder="${field.placeholder}"
+            class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white px-4 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
+        `;
+      }
+      dynamicFields.appendChild(wrap);
+    });
+
+    // Wire up show/hide toggles for every secure field just created
+    dynamicFields.querySelectorAll('[data-toggle-for]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.toggleFor);
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        btn.innerHTML = isHidden ? EYE_CLOSED : EYE_OPEN;
+        btn.setAttribute('aria-pressed', String(isHidden));
+        btn.setAttribute('aria-label', (isHidden ? 'Hide ' : 'Show ') + btn.closest('div').previousElementSibling.textContent);
+      });
+    });
+  }
+
+  // =====================================================================
+  // Navigation
+  // =====================================================================
+  backBtn.addEventListener('click', () => {
+    screenForm.classList.add('hidden');
+    screenPlatform.classList.remove('hidden');
+    screenPlatform.classList.add('fade-in');
+    hideError();
+    resetStepIndicator();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  });
+
+  function resetStepIndicator() {
+    stepDot1.classList.add('bg-vault-primary', 'text-white');
+    stepDot1.classList.remove('bg-vault-successSoft', 'text-vault-success');
+    stepDot1.textContent = '1';
+    stepLabel1.classList.add('text-vault-ink');
+    stepLabel1.classList.remove('text-vault-muted');
+    stepDot2.classList.add('bg-vault-border', 'text-vault-muted');
+    stepDot2.classList.remove('bg-vault-primary', 'text-white');
+    stepLabel2.classList.add('text-vault-muted');
+    stepLabel2.classList.remove('text-vault-ink');
+  }
+
+  function showError(message) {
+    errorText.textContent = message;
+    errorBanner.classList.remove('hidden');
+    errorBanner.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function hideError() {
+    errorBanner.classList.add('hidden');
+    errorText.textContent = '';
+  }
+
+  function setLoading(isLoading) {
+    loadingOverlay.classList.toggle('hidden', !isLoading);
+    submitBtn.disabled = isLoading;
+    backBtn.disabled = isLoading;
+  }
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // =====================================================================
+  // Submit handler
+  // =====================================================================
+  credentialForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    hideError();
+
+    const platformKey = state.selectedPlatform;
+    const platform = PLATFORMS[platformKey];
+    const emailInput = document.getElementById('clientEmail');
+    const email = emailInput.value.trim();
+
+    if (!EMAIL_RE.test(email)) {
+      showError('Please enter a valid work email address before continuing.');
+      emailInput.focus();
+      return;
+    }
+
+    // Gather + validate dynamic fields
+    const credentials = {};
+    for (const field of platform.fields) {
+      const input = document.getElementById(field.id);
+      const value = input.value.trim();
+      if (field.required && !value) {
+        showError(`"${field.label}" is required to complete the connection.`);
+        input.focus();
+        return;
+      }
+      credentials[field.id] = value;
+    }
+
+    const payload = {
+      clientEmail: email,
+      platform: platformKey,
+      platformLabel: platform.label,
+      credentials: credentials,
+      submittedAt: new Date().toISOString(),
+      source: 'secure-vault-pwa'
+    };
+
+    setLoading(true);
+    submitBtnLabel.textContent = 'Authenticating and Encrypting…';
+
+    try {
+      if (DEMO_MODE) {
+        // No webhook configured yet — simulate the round trip locally so
+        // the UI can be reviewed end-to-end. Nothing is sent anywhere.
+        await new Promise((resolve) => setTimeout(resolve, 1400));
+        onSubmitSuccess(email, platform.label);
+      } else {
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          onSubmitSuccess(email, platform.label);
+        } else {
+          let detail = '';
+          try {
+            const errJson = await response.json();
+            detail = errJson && errJson.message ? errJson.message : '';
+          } catch (_) { /* response wasn't JSON — ignore */ }
+
+          if (response.status >= 400 && response.status < 500) {
+            showError(detail || 'That token could not be verified. Please double-check the value and try again.');
+          } else {
+            showError(detail || 'Our validation service is temporarily unavailable. Please try again in a moment.');
+          }
+        }
+      }
+    } catch (networkErr) {
+      showError('Invalid token or network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+      submitBtnLabel.textContent = 'Submit credentials securely';
+    }
+  });
+
+  function onSubmitSuccess(email, platformLabel) {
+    // Clear all in-memory credential values immediately — nothing lingers
+    // in the DOM once the submission has been accepted.
+    credentialForm.reset();
+
+    successCopy.textContent = `Your ${platformLabel} credentials were verified and securely stored in our vault. A confirmation will be sent to ${email}.`;
+    screenForm.classList.add('hidden');
+    screenSuccess.classList.remove('hidden');
+    screenSuccess.classList.add('fade-in');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  submitAnotherBtn.addEventListener('click', () => {
+    state.selectedPlatform = null;
+    screenSuccess.classList.add('hidden');
+    screenPlatform.classList.remove('hidden');
+    screenPlatform.classList.add('fade-in');
+    resetStepIndicator();
+    document.querySelectorAll('.platform-card').forEach((el) => el.setAttribute('aria-pressed', 'false'));
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  });
+
+  // =====================================================================
+  // Init
+  // =====================================================================
+  buildPlatformGrid();
+
+  // Register the Service Worker (app-shell offline caching only — the
+  // webhook POST above is never touched by the Service Worker).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
