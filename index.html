@@ -17,6 +17,40 @@
 <link rel="apple-touch-icon" href="./icons/icon-192.svg">
 <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml">
 
+<!-- =====================================================================
+     Content-Security-Policy
+     ---------------------------------------------------------------------
+     IMPORTANT: replace REPLACE-WITH-YOUR-N8N-DOMAIN.com below with the
+     exact host of your N8N_WEBHOOK_URL (e.g. n8n.youragency.com). If the
+     two don't match, the browser will silently block the submit fetch()
+     and every submission will fail with a network error.
+
+     - script-src / style-src need 'unsafe-inline' because this is a
+       zero-build single file: the app logic and the Tailwind config both
+       live in inline <script> tags, and Tailwind's Play CDN injects
+       styles at runtime. This is a reasonable trade-off for a static
+       page that renders no untrusted third-party HTML.
+     - connect-src is the directive that actually matters here: it is
+       the allow-list for fetch()/XHR targets, so it is what prevents
+       this page from being repurposed to exfiltrate data anywhere but
+       your own webhook.
+     - object-src/base-uri/form-action are locked down defensively even
+       though this page doesn't use plugins or forms that submit
+       elsewhere. ===================================================== -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data:;
+  connect-src 'self' https://REPLACE-WITH-YOUR-N8N-DOMAIN.com;
+  manifest-src 'self';
+  base-uri 'self';
+  form-action 'self';
+  frame-ancestors 'none';
+  object-src 'none';
+">
+
 <!-- ===================== Fonts & Tailwind (CDN, zero build step) ===================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -210,6 +244,22 @@
 
   /* ===================== Theme toggle icon ===================== */
   .theme-icon { transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease; }
+
+  /* ===================== Honeypot (bot trap) ===================== */
+  /* Hidden from sighted users and screen readers, but still present in
+     the DOM and tab order is explicitly removed. Positioned off-screen
+     rather than display:none/visibility:hidden, since some unsophisticated
+     scraper bots specifically skip those two properties when filling
+     forms but still fill in an element that is merely moved off-canvas. */
+  .hp-field {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+  }
 </style>
 </head>
 
@@ -261,6 +311,10 @@
 
       <!-- ============ SCREEN 1: Platform selector ============ -->
       <section id="screenPlatform" class="screen">
+        <div id="clientBanner" class="hidden items-center gap-2.5 mb-4 px-3.5 py-2.5 rounded-2xl glass" role="status">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="shrink-0"><circle cx="12" cy="8" r="3.4" stroke="#4A3AFF" stroke-width="1.6"/><path d="M5 19.5c1.2-3.4 4-5 7-5s5.8 1.6 7 5" stroke="#4A3AFF" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <p class="text-[12.5px] text-mutedlight dark:text-slate-300 tracking-wide">Submitting as <span id="clientBannerName" class="font-semibold text-ink dark:text-slate-100"></span></p>
+        </div>
         <h1 class="text-[20px] font-bold font-display leading-snug mb-1 tracking-tight">Which integration are we connecting?</h1>
         <p class="text-[13.5px] text-mutedlight dark:text-slate-400 mb-5 leading-relaxed tracking-wide">Select a platform below. Your credentials are sent directly to our encrypted vault and are never stored in this browser.</p>
 
@@ -288,6 +342,17 @@
         </div>
 
         <form id="credentialForm" novalidate>
+          <!-- Honeypot — invisible to real people, irresistible to bots.
+               If this is non-empty on submit, we halt before any fetch()
+               is made. Your n8n workflow should ALSO check this field
+               independently (see README §3) in case a bot ever bypasses
+               the client-side JS entirely and posts straight to the
+               webhook. -->
+          <div class="hp-field" aria-hidden="true">
+            <label for="website_url">Company website (leave this field blank)</label>
+            <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off">
+          </div>
+
           <!-- Client email -->
           <div class="mb-4">
             <div class="flex items-center justify-between mb-1.5">
@@ -506,11 +571,29 @@
     }
   };
 
+  // Trims whitespace and strips control characters from a value before it
+  // is validated or dispatched. Applied to every field, including every
+  // API key/token, right before the payload is built — this prevents a
+  // stray leading/trailing space (very common with copy-pasted tokens)
+  // from causing a confusing authentication failure downstream.
+  function cleanValue(value) {
+    if (typeof value !== 'string') return '';
+    return value.replace(/[\u0000-\u001F\u007F]/g, '').trim();
+  }
+
+  // =====================================================================
+  // URL client-tag parsing — lets an agency send a link like
+  // ?client=AcmeCorp so the portal can label the submission without the
+  // client having to type their company name in.
+  // =====================================================================
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientTagFromUrl = cleanValue(urlParams.get('client') || '').slice(0, 120);
+
   // =====================================================================
   // In-memory only state. Intentionally never written to localStorage,
   // sessionStorage, IndexedDB, or cookies.
   // =====================================================================
-  const state = { selectedPlatform: null };
+  const state = { selectedPlatform: null, clientTag: clientTagFromUrl };
 
   // ---- Element refs ------------------------------------------------
   const screenPlatform = document.getElementById('screenPlatform');
@@ -538,8 +621,16 @@
   const helpTitle = document.getElementById('helpTitle');
   const helpBody = document.getElementById('helpBody');
   const helpCloseBtn = document.getElementById('helpCloseBtn');
+  const clientBanner = document.getElementById('clientBanner');
+  const clientBannerName = document.getElementById('clientBannerName');
 
   document.getElementById('year').textContent = new Date().getFullYear();
+
+  if (state.clientTag) {
+    clientBannerName.textContent = state.clientTag;
+    clientBanner.classList.remove('hidden');
+    clientBanner.classList.add('flex');
+  }
 
   // =====================================================================
   // Progress tracker
@@ -758,10 +849,21 @@
     event.preventDefault();
     hideError();
 
+    // ---- Honeypot check --------------------------------------------
+    // Real users never see or fill in #website_url. If it has a value,
+    // a bot filled every visible-looking field programmatically — halt
+    // here, before any network request is made. No error is shown, so
+    // an automated script sees the same UI state as an idle form and
+    // has no signal to adapt its behavior.
+    const honeypot = document.getElementById('website_url');
+    if (honeypot && cleanValue(honeypot.value) !== '') {
+      return;
+    }
+
     const platformKey = state.selectedPlatform;
     const platform = PLATFORMS[platformKey];
     const emailInput = document.getElementById('clientEmail');
-    const email = emailInput.value.trim();
+    const email = cleanValue(emailInput.value);
 
     if (!EMAIL_RE.test(email)) {
       showError('Please enter a valid work email address before continuing.');
@@ -774,7 +876,7 @@
     for (const field of platform.fields) {
       const input = document.getElementById(field.id);
       const msg = document.getElementById(field.id + '-msg');
-      const value = input.value.trim();
+      const value = cleanValue(input.value);
 
       if (field.required && !value) {
         showError(`"${field.label}" is required to complete the connection.`);
@@ -791,11 +893,13 @@
 
     const payload = {
       clientEmail: email,
+      clientTag: state.clientTag || undefined,
       platform: platformKey,
       platformLabel: platform.label,
       credentials: credentials,
       submittedAt: new Date().toISOString(),
-      source: 'secure-vault-pwa'
+      source: 'secure-vault-pwa',
+      website_url: ''
     };
 
     setLoading(true);

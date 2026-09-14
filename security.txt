@@ -1,0 +1,20 @@
+# Security Policy for Client API Key & Credential Intake Portal
+# Format follows RFC 9116 (https://www.rfc-editor.org/rfc/rfc9116)
+#
+# This file should be served at:
+#   /.well-known/security.txt
+# (a copy at the site root is also included for scanners that look there)
+
+Contact: mailto:security@yourdomain.com
+Contact: https://yourdomain.com/contact
+Expires: 2027-09-14T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://yourusername.github.io/Client-API-Key-Credential-Intake-Portal/.well-known/security.txt
+Policy: https://yourdomain.com/security-policy
+
+# If you discover a vulnerability in this intake portal (e.g. a way to
+# bypass client-side validation, exfiltrate submitted credentials, or
+# abuse the intake webhook), please report it privately using the
+# contact above rather than opening a public GitHub issue. We ask that
+# you give us a reasonable window to remediate before any public
+# disclosure.
