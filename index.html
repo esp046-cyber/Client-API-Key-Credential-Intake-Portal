@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Secure Vault">
-<meta name="theme-color" content="#1F2F6E">
+<meta id="themeColorMeta" name="theme-color" content="#F5F7FF">
 <meta name="format-detection" content="telephone=no">
 <meta name="description" content="Secure Credential Intake Portal for submitting API integration credentials.">
 <link rel="manifest" href="./manifest.json">
@@ -20,33 +20,28 @@
 <!-- ===================== Fonts & Tailwind (CDN, zero build step) ===================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
+    darkMode: 'class',
     theme: {
       extend: {
         colors: {
-          vault: {
-            bg: '#F7F8FA',
-            surface: '#FFFFFF',
-            border: '#E2E5EA',
-            ink: '#14161A',
-            muted: '#5B6472',
-            primary: '#1F2F6E',
-            primaryHover: '#16224F',
-            primarySoft: '#E9ECF7',
-            success: '#1E8965',
-            successSoft: '#E4F5EE',
-            danger: '#B3261E',
-            dangerSoft: '#FBEAE9'
-          }
+          primary: { DEFAULT: '#4A3AFF', hover: '#3B2ECC', glow: '#8B7CFF' },
+          success: { DEFAULT: '#0F9D74', soft: '#0F9D74' },
+          danger: { DEFAULT: '#E4483C', soft: '#E4483C' },
+          ink: '#161327',
+          mutedlight: '#5C5A72'
         },
         fontFamily: {
-          sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif']
+          display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
         },
         boxShadow: {
-          card: '0 1px 2px rgba(20,22,26,0.04), 0 8px 24px rgba(20,22,26,0.06)'
+          glass: '0 8px 32px rgba(31, 30, 70, 0.10), inset 0 1px 0 rgba(255,255,255,0.35)',
+          glassDark: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
+          glow: '0 0 0 4px rgba(74,58,255,0.16), 0 8px 24px rgba(74,58,255,0.35)'
         }
       }
     }
@@ -54,16 +49,47 @@
 </script>
 
 <style>
-  /* Prevent iOS zoom-on-focus regardless of viewport meta support */
-  input, select, textarea { font-size: 16px; }
+  :root { color-scheme: light; }
+  html.dark { color-scheme: dark; }
 
+  * { -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
   body {
-    -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
+    font-family: 'Inter', system-ui, sans-serif;
   }
+  h1, h2, .font-display { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
 
-  /* Respect users who prefer reduced motion */
+  /* ===================== Animated mesh / spatial background ===================== */
+  .mesh {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    overflow: hidden;
+    background: #F3F5FF;
+    transition: background 0.5s ease;
+  }
+  html.dark .mesh { background: #090A14; }
+
+  .mesh span {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(60px);
+    opacity: 0.55;
+    will-change: transform;
+  }
+  .mesh .b1 { width: 60vw; height: 60vw; top: -18vw; left: -16vw; background: radial-gradient(circle, #C7D2FE, transparent 70%); animation: float1 22s ease-in-out infinite alternate; }
+  .mesh .b2 { width: 70vw; height: 70vw; bottom: -25vw; right: -22vw; background: radial-gradient(circle, #E9D5FF, transparent 70%); animation: float2 26s ease-in-out infinite alternate; }
+  .mesh .b3 { width: 45vw; height: 45vw; top: 30%; left: 55%; background: radial-gradient(circle, #BAE6FD, transparent 72%); animation: float3 19s ease-in-out infinite alternate; }
+
+  html.dark .mesh .b1 { background: radial-gradient(circle, #4338CA, transparent 70%); opacity: 0.45; }
+  html.dark .mesh .b2 { background: radial-gradient(circle, #6D28D9, transparent 70%); opacity: 0.40; }
+  html.dark .mesh .b3 { background: radial-gradient(circle, #0E7490, transparent 72%); opacity: 0.35; }
+
+  @keyframes float1 { from { transform: translate(0,0) scale(1); } to { transform: translate(6vw, 8vw) scale(1.15); } }
+  @keyframes float2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-7vw, -5vw) scale(1.1); } }
+  @keyframes float3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-5vw, 6vw) scale(0.9); } }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -73,141 +99,236 @@
     }
   }
 
+  /* Prevent iOS zoom-on-focus */
+  input, select, textarea { font-size: 16px; }
+
+  :focus-visible { outline: 2px solid #4A3AFF; outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: rgba(74,58,255,0.18); color: #4A3AFF; }
+
+  /* ===================== Glass surfaces ===================== */
+  .glass {
+    background: rgba(255,255,255,0.62);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.55);
+  }
+  html.dark .glass {
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.09);
+  }
+
+  .glass-strong {
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.7);
+  }
+  html.dark .glass-strong {
+    background: rgba(18,18,30,0.72);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+
+  /* ===================== Screen transitions ===================== */
+  .screen { transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.22,1,0.36,1); }
+  .screen-hidden { opacity: 0; transform: translateY(10px) scale(0.99); position: absolute; pointer-events: none; }
+  .screen-enter-left { opacity: 0; transform: translateX(18px); }
+  .screen-enter-right { opacity: 0; transform: translateX(-18px); }
+
+  /* ===================== Platform cards ===================== */
+  .platform-card {
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+  }
+  .platform-card:active { transform: scale(0.96); }
+  .platform-card[aria-pressed="true"] {
+    border-color: rgba(74,58,255,0.55);
+    box-shadow: 0 0 0 3px rgba(74,58,255,0.18), 0 12px 28px rgba(74,58,255,0.18);
+    transform: translateY(-2px);
+  }
+
+  /* ===================== Progress bar ===================== */
+  .progress-track { background: rgba(120,120,160,0.18); }
+  html.dark .progress-track { background: rgba(255,255,255,0.10); }
+  .progress-fill {
+    background: linear-gradient(90deg, #4A3AFF, #8B7CFF);
+    transition: width 0.55s cubic-bezier(0.65,0,0.35,1);
+    box-shadow: 0 0 12px rgba(139,124,255,0.6);
+  }
+
+  /* ===================== Inputs ===================== */
+  .field-input {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .field-input:focus { box-shadow: 0 0 0 4px rgba(74,58,255,0.14); }
+  .field-invalid { border-color: #E4483C !important; }
+  .field-invalid:focus { box-shadow: 0 0 0 4px rgba(228,72,60,0.14) !important; }
+  .field-valid { border-color: #0F9D74 !important; }
+
+  /* ===================== Premium button ===================== */
+  .btn-primary {
+    background: linear-gradient(180deg, #5A4BFF 0%, #4A3AFF 100%);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 10px 24px rgba(74,58,255,0.35);
+    transition: transform 0.18s ease, box-shadow 0.25s ease, filter 0.25s ease;
+  }
+  .btn-primary:active { transform: scale(0.98); filter: brightness(0.96); }
+  .btn-primary:disabled { filter: grayscale(0.15) brightness(0.92); }
+
+  .shimmer { position: relative; overflow: hidden; }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: shimmerMove 1.6s ease-in-out infinite;
+  }
+  @keyframes shimmerMove { to { transform: translateX(100%); } }
+
   .spinner {
-    border: 3px solid rgba(255,255,255,0.25);
+    border: 3px solid rgba(255,255,255,0.3);
     border-top-color: #FFFFFF;
     border-radius: 9999px;
-    width: 28px;
-    height: 28px;
-    animation: spin 0.8s linear infinite;
+    width: 22px;
+    height: 22px;
+    animation: spin 0.75s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  .fade-in { animation: fadeIn 0.25s ease-out; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
   .check-draw {
     stroke-dasharray: 48;
     stroke-dashoffset: 48;
-    animation: draw 0.55s 0.1s ease-out forwards;
+    animation: draw 0.6s 0.15s ease-out forwards;
   }
   @keyframes draw { to { stroke-dashoffset: 0; } }
 
-  .platform-card[aria-pressed="true"] {
-    border-color: #1F2F6E;
-    box-shadow: 0 0 0 3px #E9ECF7;
+  /* ===================== Bottom sheet ===================== */
+  #sheetOverlay { transition: opacity 0.28s ease; }
+  #helpSheet {
+    transition: transform 0.32s cubic-bezier(0.22,1,0.36,1);
+    transform: translateY(100%);
   }
+  #sheetOverlay.open #helpSheet { transform: translateY(0); }
 
-  /* Visible keyboard focus ring everywhere, matching the brand color */
-  :focus-visible {
-    outline: 2px solid #1F2F6E;
-    outline-offset: 2px;
-  }
-
-  ::selection { background: #E9ECF7; color: #1F2F6E; }
+  /* ===================== Theme toggle icon ===================== */
+  .theme-icon { transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease; }
 </style>
 </head>
 
-<body class="bg-vault-bg text-vault-ink font-sans antialiased min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col text-ink dark:text-slate-100 antialiased">
 
-  <!-- ===================== App Shell ===================== -->
-  <div class="flex-1 flex flex-col max-w-[480px] w-full mx-auto px-5 pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
+  <!-- Animated spatial mesh background -->
+  <div class="mesh" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+
+  <div class="flex-1 flex flex-col max-w-[480px] w-full mx-auto px-5 pt-[max(20px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))]">
 
     <!-- Header -->
     <header class="flex items-center gap-3 py-4">
-      <div class="w-10 h-10 rounded-xl bg-vault-primary flex items-center justify-center shrink-0" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shrink-0 shadow-glow" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
           <path d="M6 11V8a6 6 0 0 1 12 0v3" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
           <rect x="4" y="11" width="16" height="10" rx="2.5" fill="#FFFFFF"/>
-          <circle cx="12" cy="15.3" r="1.6" fill="#1F2F6E"/>
-          <rect x="11.1" y="16.4" width="1.8" height="3" rx="0.9" fill="#1F2F6E"/>
+          <circle cx="12" cy="15.3" r="1.6" fill="#4A3AFF"/>
+          <rect x="11.1" y="16.4" width="1.8" height="3" rx="0.9" fill="#4A3AFF"/>
         </svg>
       </div>
-      <div>
-        <p class="text-[15px] font-bold leading-tight">Secure Vault</p>
-        <p class="text-[12px] text-vault-muted leading-tight">Credential Intake Portal</p>
+      <div class="flex-1 min-w-0">
+        <p class="font-display text-[15px] font-bold leading-tight tracking-tight">Secure Vault</p>
+        <p class="text-[11.5px] text-mutedlight dark:text-slate-400 leading-tight tracking-wide">Credential Intake Portal</p>
       </div>
+      <button id="themeToggle" type="button" aria-label="Switch to dark mode"
+        class="w-11 h-11 rounded-xl glass flex items-center justify-center shrink-0 active:scale-90 transition-transform">
+        <svg id="themeIconSun" class="theme-icon" width="19" height="19" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="4.2" stroke="#4A3AFF" stroke-width="1.8"/>
+          <path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" stroke="#4A3AFF" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <svg id="themeIconMoon" class="theme-icon hidden" width="19" height="19" viewBox="0 0 24 24" fill="none">
+          <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" fill="#A78BFA"/>
+        </svg>
+      </button>
     </header>
 
-    <!-- Step indicator -->
-    <div id="stepIndicator" class="flex items-center gap-2 mb-5" role="list" aria-label="Progress">
-      <div class="flex items-center gap-2 flex-1" role="listitem">
-        <div id="stepDot1" class="w-6 h-6 rounded-full bg-vault-primary text-white text-[12px] font-bold flex items-center justify-center shrink-0">1</div>
-        <span id="stepLabel1" class="text-[13px] font-semibold text-vault-ink">Choose platform</span>
+    <!-- Interactive progress tracker -->
+    <div class="mb-5" role="group" aria-label="Progress">
+      <div class="flex justify-between items-center mb-2">
+        <span id="progLabel1" class="text-[12px] font-semibold tracking-tight text-ink dark:text-slate-100">Choose platform</span>
+        <span id="progLabel2" class="text-[12px] font-semibold tracking-tight text-mutedlight dark:text-slate-500">Add credentials</span>
       </div>
-      <div class="h-px flex-1 bg-vault-border" aria-hidden="true"></div>
-      <div class="flex items-center gap-2 flex-1 justify-end" role="listitem">
-        <span id="stepLabel2" class="text-[13px] font-semibold text-vault-muted">Add credentials</span>
-        <div id="stepDot2" class="w-6 h-6 rounded-full bg-vault-border text-vault-muted text-[12px] font-bold flex items-center justify-center shrink-0">2</div>
+      <div class="h-1.5 w-full rounded-full progress-track overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8" id="progressBar">
+        <div id="progressFill" class="h-full rounded-full progress-fill" style="width:8%"></div>
       </div>
     </div>
 
-    <main class="flex-1">
+    <main class="flex-1 relative">
 
       <!-- ============ SCREEN 1: Platform selector ============ -->
-      <section id="screenPlatform" class="fade-in">
-        <h1 class="text-[20px] font-bold leading-snug mb-1">Which integration are we connecting?</h1>
-        <p class="text-[14px] text-vault-muted mb-5 leading-relaxed">Select a platform below. Your credentials are sent directly to our encrypted vault and are never stored in this browser.</p>
+      <section id="screenPlatform" class="screen">
+        <h1 class="text-[20px] font-bold font-display leading-snug mb-1 tracking-tight">Which integration are we connecting?</h1>
+        <p class="text-[13.5px] text-mutedlight dark:text-slate-400 mb-5 leading-relaxed tracking-wide">Select a platform below. Your credentials are sent directly to our encrypted vault and are never stored in this browser.</p>
 
         <div id="platformGrid" class="grid grid-cols-2 gap-3" role="list"></div>
       </section>
 
       <!-- ============ SCREEN 2: Credential form ============ -->
-      <section id="screenForm" class="fade-in hidden">
-        <button id="backBtn" type="button" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-vault-muted mb-3 min-h-[44px] -ml-2 pl-2 pr-3 rounded-lg active:bg-vault-border/40">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#5B6472" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <section id="screenForm" class="screen screen-hidden">
+        <button id="backBtn" type="button" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-mutedlight dark:text-slate-400 mb-3 min-h-[44px] -ml-2 pl-2 pr-3 rounded-lg active:bg-black/5 dark:active:bg-white/10">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Back
         </button>
 
-        <div class="flex items-center gap-3 mb-4">
+        <div class="flex items-center gap-3 mb-4 glass rounded-2xl p-3.5 shadow-glass dark:shadow-glassDark">
           <div id="selectedIconWrap" class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"></div>
-          <div>
-            <h1 id="selectedPlatformName" class="text-[19px] font-bold leading-tight"></h1>
-            <p class="text-[13px] text-vault-muted leading-tight">Enter the credentials below</p>
+          <div class="min-w-0">
+            <h1 id="selectedPlatformName" class="text-[17px] font-bold font-display leading-tight tracking-tight truncate"></h1>
+            <p class="text-[12.5px] text-mutedlight dark:text-slate-400 leading-tight tracking-wide">Enter the credentials below</p>
           </div>
         </div>
 
-        <div id="errorBanner" class="hidden mb-4 rounded-xl bg-vault-dangerSoft border border-vault-danger/20 px-4 py-3 flex items-start gap-2.5" role="alert" aria-live="assertive">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="9" stroke="#B3261E" stroke-width="2"/><path d="M12 8v5" stroke="#B3261E" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.1" fill="#B3261E"/></svg>
-          <p id="errorText" class="text-[13.5px] text-vault-danger leading-snug"></p>
+        <div id="errorBanner" class="hidden mb-4 rounded-2xl glass border border-danger/25 px-4 py-3 flex items-start gap-2.5" role="alert" aria-live="assertive">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="9" stroke="#E4483C" stroke-width="2"/><path d="M12 8v5" stroke="#E4483C" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.1" fill="#E4483C"/></svg>
+          <p id="errorText" class="text-[13.5px] text-danger leading-snug"></p>
         </div>
 
         <form id="credentialForm" novalidate>
           <!-- Client email -->
           <div class="mb-4">
-            <label for="clientEmail" class="block text-[13px] font-semibold text-vault-ink mb-1.5">Your work email</label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label for="clientEmail" class="text-[13px] font-semibold text-ink dark:text-slate-100 tracking-tight">Your work email</label>
+              <button type="button" class="help-btn w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="clientEmail" aria-label="How to find your work email">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.6"/><path d="M9.7 9.3a2.3 2.3 0 1 1 3.4 2c-.7.5-1.1.9-1.1 1.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
+              </button>
+            </div>
             <input type="email" id="clientEmail" name="clientEmail" required autocomplete="email" placeholder="name@company.com"
-              class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white px-4 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
-            <p class="text-[12px] text-vault-muted mt-1.5">We'll confirm the connection to this address.</p>
+              class="field-input w-full min-h-[48px] rounded-xl border border-black/10 dark:border-white/15 glass px-4 text-[15px] placeholder:text-mutedlight/60 focus:border-primary outline-none">
+            <p id="clientEmail-msg" class="text-[12px] text-mutedlight dark:text-slate-500 mt-1.5 tracking-wide">We'll confirm the connection to this address.</p>
           </div>
 
           <!-- Dynamic platform-specific fields injected here -->
           <div id="dynamicFields"></div>
 
-          <div class="flex items-start gap-2.5 mt-2 mb-5 p-3.5 rounded-xl bg-vault-primarySoft">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0 mt-0.5"><path d="M12 2l7 3.5v6c0 5-3 8.5-7 10.5-4-2-7-5.5-7-10.5v-6L12 2z" stroke="#1F2F6E" stroke-width="1.8" stroke-linejoin="round"/></svg>
-            <p class="text-[12.5px] text-vault-primary leading-snug">Fields are masked by default. Nothing you type here is saved to this device — it is transmitted once, directly to our encrypted intake service.</p>
+          <!-- Expiration / trust notice -->
+          <div class="flex items-center gap-2.5 mt-1 mb-4 px-3.5 py-3 rounded-2xl glass">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2" stroke="#4A3AFF" stroke-width="1.6"/><path d="M7.5 10.5V7.8a4.5 4.5 0 0 1 9 0v2.7" stroke="#4A3AFF" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <p class="text-[12px] text-mutedlight dark:text-slate-400 leading-snug tracking-wide">Security policy: this link and any submitted data expire automatically in <span class="font-semibold text-ink dark:text-slate-200">24 hours</span>.</p>
           </div>
 
           <button type="submit" id="submitBtn"
-            class="w-full min-h-[52px] rounded-xl bg-vault-primary text-white text-[15.5px] font-bold flex items-center justify-center gap-2.5 active:bg-vault-primaryHover disabled:opacity-60 transition-colors">
+            class="btn-primary w-full min-h-[52px] rounded-2xl text-white text-[15.5px] font-bold font-display tracking-tight flex items-center justify-center gap-2.5 disabled:cursor-not-allowed">
             <span id="submitBtnLabel">Submit credentials securely</span>
           </button>
         </form>
       </section>
 
       <!-- ============ SCREEN 3: Success ============ -->
-      <section id="screenSuccess" class="fade-in hidden text-center pt-6">
-        <div class="w-20 h-20 rounded-full bg-vault-successSoft flex items-center justify-center mx-auto mb-5">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="#1E8965" stroke-width="1.6"/>
-            <path class="check-draw" d="M7.5 12.5l3 3 6-6.5" stroke="#1E8965" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <section id="screenSuccess" class="screen screen-hidden text-center pt-6">
+        <div class="w-20 h-20 rounded-full glass-strong shadow-glass dark:shadow-glassDark flex items-center justify-center mx-auto mb-5">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#0F9D74" stroke-width="1.6"/>
+            <path class="check-draw" d="M7.5 12.5l3 3 6-6.5" stroke="#0F9D74" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h1 class="text-[21px] font-bold mb-2">Credentials received</h1>
-        <p id="successCopy" class="text-[14.5px] text-vault-muted leading-relaxed mb-8 px-2"></p>
+        <h1 class="text-[21px] font-bold font-display mb-2 tracking-tight">Credentials received</h1>
+        <p id="successCopy" class="text-[14px] text-mutedlight dark:text-slate-400 leading-relaxed mb-8 px-2 tracking-wide"></p>
         <button id="submitAnotherBtn" type="button"
-          class="w-full min-h-[52px] rounded-xl border border-vault-border bg-white text-vault-ink text-[15px] font-bold active:bg-vault-border/30 transition-colors">
+          class="w-full min-h-[52px] rounded-2xl glass shadow-glass dark:shadow-glassDark text-ink dark:text-slate-100 text-[15px] font-bold font-display tracking-tight active:scale-[0.98] transition-transform">
           Submit another credential
         </button>
       </section>
@@ -215,15 +336,32 @@
     </main>
 
     <footer class="pt-6 pb-2">
-      <p class="text-[11.5px] text-vault-muted text-center leading-relaxed">Encrypted in transit · Never stored in this browser<br>© <span id="year"></span> Secure Vault</p>
+      <p class="text-[11px] text-mutedlight dark:text-slate-500 text-center leading-relaxed tracking-wide">Encrypted in transit · Never stored in this browser<br>© <span id="year"></span> Secure Vault</p>
     </footer>
   </div>
 
   <!-- ===================== Loading overlay ===================== -->
-  <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-vault-primary/97 backdrop-blur-sm flex flex-col items-center justify-center gap-4 px-8" role="status" aria-live="polite" aria-busy="true">
-    <div class="spinner" aria-hidden="true"></div>
-    <p id="loadingText" class="text-white text-[16px] font-semibold text-center">Authenticating and Encrypting…</p>
-    <p class="text-white/70 text-[13px] text-center max-w-[280px]">Please keep this window open. This only takes a moment.</p>
+  <div id="loadingOverlay" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 px-8" role="status" aria-live="polite" aria-busy="true">
+    <div class="absolute inset-0 bg-primary/90 dark:bg-[#0A0A16]/95 backdrop-blur-sm"></div>
+    <div class="relative flex flex-col items-center gap-4">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="text-white text-[16px] font-bold font-display text-center tracking-tight">Authenticating and Encrypting…</p>
+      <p class="text-white/70 text-[13px] text-center max-w-[280px] tracking-wide">Please keep this window open. This only takes a moment.</p>
+    </div>
+  </div>
+
+  <!-- ===================== Help bottom sheet ===================== -->
+  <div id="sheetOverlay" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-end">
+    <div id="helpSheet" class="w-full max-w-[480px] mx-auto glass-strong shadow-glass dark:shadow-glassDark rounded-t-3xl px-5 pt-3 pb-[max(24px,env(safe-area-inset-bottom))]">
+      <div class="w-10 h-1.5 rounded-full bg-black/15 dark:bg-white/20 mx-auto mb-4"></div>
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <h2 id="helpTitle" class="text-[16.5px] font-bold font-display tracking-tight leading-snug"></h2>
+        <button id="helpCloseBtn" type="button" aria-label="Close" class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p id="helpBody" class="text-[14px] text-mutedlight dark:text-slate-300 leading-relaxed mb-5 tracking-wide"></p>
+    </div>
   </div>
 
 <script>
@@ -240,6 +378,37 @@
   // Toggle to `true` while wiring things up without a live webhook yet.
   // When true, submissions are simulated locally and never leave the device.
   const DEMO_MODE = N8N_WEBHOOK_URL === 'YOUR_WEBHOOK_URL_HERE';
+
+  // =====================================================================
+  // Theme handling — respects prefers-color-scheme on first load, then
+  // remembers the user's explicit choice (not credential data, so this
+  // one preference is fine to keep in localStorage).
+  // =====================================================================
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIconSun = document.getElementById('themeIconSun');
+  const themeIconMoon = document.getElementById('themeIconMoon');
+  const themeColorMeta = document.getElementById('themeColorMeta');
+
+  function applyTheme(mode) {
+    const isDark = mode === 'dark';
+    root.classList.toggle('dark', isDark);
+    themeIconSun.classList.toggle('hidden', isDark);
+    themeIconMoon.classList.toggle('hidden', !isDark);
+    themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+    themeColorMeta.setAttribute('content', isDark ? '#090A14' : '#F5F7FF');
+  }
+
+  let storedTheme = null;
+  try { storedTheme = localStorage.getItem('sv-theme'); } catch (_) { /* storage unavailable */ }
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(storedTheme || (prefersDark ? 'dark' : 'light'));
+
+  themeToggle.addEventListener('click', () => {
+    const next = root.classList.contains('dark') ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem('sv-theme', next); } catch (_) { /* storage unavailable */ }
+  });
 
   // =====================================================================
   // Icon library (inline SVG strings — no external image requests)
@@ -267,49 +436,72 @@
     </svg>`
   };
 
-  const EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" stroke="#5B6472" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="#5B6472" stroke-width="1.8"/></svg>`;
-  const EYE_CLOSED = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round"/><path d="M9.9 5.3A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a15.6 15.6 0 0 1-3.7 4.6M6.2 6.9C3.7 8.6 2 12 2 12s3.6 7 10 7c1.2 0 2.4-.2 3.4-.6" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 12a2.1 2.1 0 0 0 3 3" stroke="#5B6472" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>`;
+  const EYE_CLOSED = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.9 5.3A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a15.6 15.6 0 0 1-3.7 4.6M6.2 6.9C3.7 8.6 2 12 2 12s3.6 7 10 7c1.2 0 2.4-.2 3.4-.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 12a2.1 2.1 0 0 0 3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
 
   const ICON_BG = { meta: '#E9F1FF', google: '#FEF6E8', ghl: '#E7F9EF', other: '#F1F2F4' };
+  const ICON_BG_DARK = { meta: 'rgba(11,99,246,0.16)', google: 'rgba(251,188,5,0.14)', ghl: 'rgba(63,203,107,0.16)', other: 'rgba(255,255,255,0.08)' };
+
+  function iconBg(key) { return root.classList.contains('dark') ? ICON_BG_DARK[key] : ICON_BG[key]; }
 
   // =====================================================================
-  // Platform → field schema
-  // Each secure field renders as a masked (password) input with a
-  // show/hide toggle. `secure:false` fields (like a Location ID) render
-  // as plain text since they are identifiers, not secrets.
+  // Platform → field schema, now with validation patterns and
+  // "how to find this" help copy for the bottom-sheet tooltips.
   // =====================================================================
+  const HELP = {
+    clientEmail: { title: 'Your work email', body: "We'll send a confirmation to this address once your credentials are verified and stored — use the inbox your team actually checks." },
+    accessToken: { title: 'Meta Access Token', body: 'Go to Business Settings → System Users, select or create a system user, then click "Generate New Token." Copy the full token string exactly as shown.' },
+    businessManagerId: { title: 'Business Manager ID', body: 'In Business Settings → Business Info, your Business Manager ID is listed near the top of the page as a string of digits.' },
+    customerId: { title: 'Google Ads Customer ID', body: 'Sign in to Google Ads. Your Customer ID appears in the top right corner of the page, formatted like 123-456-7890.' },
+    developerToken: { title: 'Google Ads Developer Token', body: 'In Google Ads, go to Tools & Settings → Setup → API Center. Your developer token is listed there under your manager account.' },
+    refreshToken: { title: 'OAuth Refresh Token', body: "This is generated during the Google Ads API OAuth consent flow. If you don't have this handy, ask the developer who set up the integration." },
+    apiKey: { title: 'GoHighLevel API Key', body: 'Go to Settings → Business Profile → API Keys, then generate or copy your existing API key. It is a long token starting with "eyJ".' },
+    locationId: { title: 'GoHighLevel Location ID', body: 'Go to Settings → Company → Locations. You can also find the Location ID in the URL bar while viewing that sub-account.' },
+    credentialName: { title: 'Credential name', body: "Give this credential a short, recognizable label so our team knows what it's for — for example \"Stripe Secret Key\" or \"Klaviyo API Key\"." },
+    credentialValue: { title: 'Credential value', body: 'Paste the exact key, token, or secret provided by the platform, with no extra spaces before or after.' }
+  };
+
   const PLATFORMS = {
     meta: {
       label: 'Meta / Facebook Ads',
       icon: 'meta',
       fields: [
-        { id: 'accessToken', label: 'Access Token', placeholder: 'EAAG...', secure: true, autocomplete: 'off', required: true },
-        { id: 'businessManagerId', label: 'Business Manager ID', placeholder: 'e.g. 123456789012345', secure: false, autocomplete: 'off', required: true }
+        { id: 'accessToken', label: 'Access Token', placeholder: 'EAAG...', secure: true, autocomplete: 'off', required: true,
+          pattern: /^EAA[A-Za-z0-9]{20,}$/, error: 'This doesn\u2019t look like a standard Meta access token — it should start with "EAA" and be quite long.' },
+        { id: 'businessManagerId', label: 'Business Manager ID', placeholder: 'e.g. 123456789012345', secure: false, autocomplete: 'off', required: true,
+          pattern: /^\d{10,16}$/, error: 'Business Manager IDs are typically 10–16 digits, numbers only.' }
       ]
     },
     google: {
       label: 'Google Ads',
       icon: 'google',
       fields: [
-        { id: 'customerId', label: 'Customer ID', placeholder: 'e.g. 123-456-7890', secure: false, autocomplete: 'off', required: true },
-        { id: 'developerToken', label: 'Developer Token', placeholder: 'Developer token', secure: true, autocomplete: 'off', required: true },
-        { id: 'refreshToken', label: 'OAuth Refresh Token', placeholder: 'Refresh token', secure: true, autocomplete: 'off', required: true }
+        { id: 'customerId', label: 'Customer ID', placeholder: 'e.g. 123-456-7890', secure: false, autocomplete: 'off', required: true,
+          pattern: /^\d{3}-?\d{3}-?\d{4}$/, error: 'Customer ID should look like 123-456-7890.' },
+        { id: 'developerToken', label: 'Developer Token', placeholder: 'Developer token', secure: true, autocomplete: 'off', required: true,
+          pattern: /^[A-Za-z0-9_-]{15,30}$/, error: 'Developer tokens are usually 15–30 letters and numbers, no spaces.' },
+        { id: 'refreshToken', label: 'OAuth Refresh Token', placeholder: 'Refresh token', secure: true, autocomplete: 'off', required: true,
+          pattern: /^1\/\/[A-Za-z0-9_-]{15,}$/, error: 'Google refresh tokens usually start with "1//".' }
       ]
     },
     ghl: {
       label: 'GoHighLevel',
       icon: 'ghl',
       fields: [
-        { id: 'apiKey', label: 'API Key', placeholder: 'Paste your API key', secure: true, autocomplete: 'off', required: true },
-        { id: 'locationId', label: 'Location ID', placeholder: 'e.g. loc_ab12cd34', secure: false, autocomplete: 'off', required: true }
+        { id: 'apiKey', label: 'API Key', placeholder: 'Paste your API key', secure: true, autocomplete: 'off', required: true,
+          pattern: /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/, error: 'GoHighLevel API keys are long tokens starting with "eyJ" (JWT format).' },
+        { id: 'locationId', label: 'Location ID', placeholder: 'e.g. ve9EPM428h8vShlRW1KT', secure: false, autocomplete: 'off', required: true,
+          pattern: /^[A-Za-z0-9]{10,25}$/, error: 'Location IDs are usually 10–25 letters and numbers.' }
       ]
     },
     other: {
       label: 'Other Integration',
       icon: 'other',
       fields: [
-        { id: 'credentialName', label: 'Platform / credential name', placeholder: 'e.g. Stripe Secret Key', secure: false, autocomplete: 'off', required: true },
-        { id: 'credentialValue', label: 'Credential value', placeholder: 'Paste the key or token', secure: true, autocomplete: 'off', required: true }
+        { id: 'credentialName', label: 'Platform / credential name', placeholder: 'e.g. Stripe Secret Key', secure: false, autocomplete: 'off', required: true,
+          pattern: /^.{2,60}$/, error: 'Give this credential a short name (2–60 characters).' },
+        { id: 'credentialValue', label: 'Credential value', placeholder: 'Paste the key or token', secure: true, autocomplete: 'off', required: true,
+          pattern: /^.{8,}$/, error: 'This value looks too short to be a valid credential (8+ characters expected).' }
       ]
     }
   };
@@ -318,9 +510,7 @@
   // In-memory only state. Intentionally never written to localStorage,
   // sessionStorage, IndexedDB, or cookies.
   // =====================================================================
-  const state = {
-    selectedPlatform: null
-  };
+  const state = { selectedPlatform: null };
 
   // ---- Element refs ------------------------------------------------
   const screenPlatform = document.getElementById('screenPlatform');
@@ -339,12 +529,57 @@
   const loadingOverlay = document.getElementById('loadingOverlay');
   const submitAnotherBtn = document.getElementById('submitAnotherBtn');
   const successCopy = document.getElementById('successCopy');
-  const stepDot1 = document.getElementById('stepDot1');
-  const stepDot2 = document.getElementById('stepDot2');
-  const stepLabel1 = document.getElementById('stepLabel1');
-  const stepLabel2 = document.getElementById('stepLabel2');
+  const progLabel1 = document.getElementById('progLabel1');
+  const progLabel2 = document.getElementById('progLabel2');
+  const progressFill = document.getElementById('progressFill');
+  const progressBar = document.getElementById('progressBar');
+  const sheetOverlay = document.getElementById('sheetOverlay');
+  const helpSheet = document.getElementById('helpSheet');
+  const helpTitle = document.getElementById('helpTitle');
+  const helpBody = document.getElementById('helpBody');
+  const helpCloseBtn = document.getElementById('helpCloseBtn');
 
   document.getElementById('year').textContent = new Date().getFullYear();
+
+  // =====================================================================
+  // Progress tracker
+  // =====================================================================
+  function setProgress(percent, activeStep) {
+    progressFill.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', String(percent));
+    if (activeStep === 1) {
+      progLabel1.classList.remove('text-mutedlight', 'dark:text-slate-500');
+      progLabel1.classList.add('text-ink', 'dark:text-slate-100');
+      progLabel2.classList.remove('text-ink', 'dark:text-slate-100');
+      progLabel2.classList.add('text-mutedlight', 'dark:text-slate-500');
+    } else {
+      progLabel2.classList.remove('text-mutedlight', 'dark:text-slate-500');
+      progLabel2.classList.add('text-ink', 'dark:text-slate-100');
+      progLabel1.classList.remove('text-ink', 'dark:text-slate-100');
+      progLabel1.classList.add('text-mutedlight', 'dark:text-slate-500');
+    }
+  }
+
+  // =====================================================================
+  // Help bottom sheet
+  // =====================================================================
+  function openHelp(fieldId) {
+    const entry = HELP[fieldId];
+    if (!entry) return;
+    helpTitle.textContent = entry.title;
+    helpBody.textContent = entry.body;
+    sheetOverlay.classList.remove('hidden');
+    requestAnimationFrame(() => sheetOverlay.classList.add('open'));
+  }
+  function closeHelp() {
+    sheetOverlay.classList.remove('open');
+    setTimeout(() => sheetOverlay.classList.add('hidden'), 300);
+  }
+  sheetOverlay.addEventListener('click', (e) => { if (e.target === sheetOverlay) closeHelp(); });
+  helpCloseBtn.addEventListener('click', closeHelp);
+  document.querySelectorAll('[data-help]').forEach((btn) => {
+    btn.addEventListener('click', () => openHelp(btn.dataset.help));
+  });
 
   // =====================================================================
   // Build the platform selector grid
@@ -355,13 +590,13 @@
       const platform = PLATFORMS[key];
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = 'platform-card min-h-[112px] rounded-2xl border border-vault-border bg-white shadow-card px-3 py-4 flex flex-col items-center justify-center gap-2.5 text-center transition-shadow active:scale-[0.98]';
+      card.className = 'platform-card min-h-[112px] rounded-2xl glass shadow-glass dark:shadow-glassDark px-3 py-4 flex flex-col items-center justify-center gap-2.5 text-center';
       card.setAttribute('role', 'listitem');
       card.setAttribute('aria-pressed', 'false');
       card.dataset.platform = key;
       card.innerHTML = `
-        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:${ICON_BG[key]}">${ICONS[key]}</div>
-        <span class="text-[13.5px] font-semibold leading-snug">${platform.label}</span>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:${iconBg(key)}">${ICONS[key]}</div>
+        <span class="text-[13.5px] font-semibold font-display leading-snug tracking-tight">${platform.label}</span>
       `;
       card.addEventListener('click', () => selectPlatform(key));
       platformGrid.appendChild(card);
@@ -376,26 +611,18 @@
       el.setAttribute('aria-pressed', String(el.dataset.platform === key));
     });
 
-    selectedIconWrap.style.background = ICON_BG[key];
+    selectedIconWrap.style.background = iconBg(key);
     selectedIconWrap.innerHTML = ICONS[key];
     selectedPlatformName.textContent = platform.label;
 
     buildDynamicFields(platform);
     hideError();
+    setProgress(55, 2);
 
-    stepDot1.classList.remove('bg-vault-primary', 'text-white');
-    stepDot1.classList.add('bg-vault-successSoft', 'text-vault-success');
-    stepDot1.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#1E8965" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    stepLabel1.classList.remove('text-vault-ink');
-    stepLabel1.classList.add('text-vault-muted');
-    stepDot2.classList.remove('bg-vault-border', 'text-vault-muted');
-    stepDot2.classList.add('bg-vault-primary', 'text-white');
-    stepLabel2.classList.remove('text-vault-muted');
-    stepLabel2.classList.add('text-vault-ink');
-
-    screenPlatform.classList.add('hidden');
-    screenForm.classList.remove('hidden');
-    screenForm.classList.add('fade-in');
+    screenPlatform.classList.add('screen-hidden');
+    screenForm.classList.remove('screen-hidden');
+    screenForm.classList.add('screen-enter-right');
+    requestAnimationFrame(() => screenForm.classList.remove('screen-enter-right'));
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
@@ -405,34 +632,44 @@
       const wrap = document.createElement('div');
       wrap.className = 'mb-4';
 
+      const labelRow = `
+        <div class="flex items-center justify-between mb-1.5">
+          <label for="${field.id}" class="text-[13px] font-semibold text-ink dark:text-slate-100 tracking-tight">${field.label}</label>
+          <button type="button" class="help-btn w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="${field.id}" aria-label="How to find ${field.label}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.6"/><path d="M9.7 9.3a2.3 2.3 0 1 1 3.4 2c-.7.5-1.1.9-1.1 1.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
+          </button>
+        </div>`;
+
       if (field.secure) {
         wrap.innerHTML = `
-          <label for="${field.id}" class="block text-[13px] font-semibold text-vault-ink mb-1.5">${field.label}</label>
+          ${labelRow}
           <div class="relative">
             <input type="password" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}
               autocomplete="${field.autocomplete}" autocapitalize="off" autocorrect="off" spellcheck="false"
               placeholder="${field.placeholder}"
-              class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white pl-4 pr-12 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
+              class="field-input w-full min-h-[48px] rounded-xl border border-black/10 dark:border-white/15 glass pl-4 pr-12 text-[15px] placeholder:text-mutedlight/60 focus:border-primary outline-none">
             <button type="button" data-toggle-for="${field.id}"
-              class="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg active:bg-vault-border/40"
+              class="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10"
               aria-label="Show ${field.label}" aria-pressed="false">
               ${EYE_OPEN}
             </button>
           </div>
+          <p id="${field.id}-msg" class="text-[12px] text-mutedlight dark:text-slate-500 mt-1.5 tracking-wide"></p>
         `;
       } else {
         wrap.innerHTML = `
-          <label for="${field.id}" class="block text-[13px] font-semibold text-vault-ink mb-1.5">${field.label}</label>
+          ${labelRow}
           <input type="text" id="${field.id}" name="${field.id}" ${field.required ? 'required' : ''}
             autocomplete="${field.autocomplete}" autocapitalize="off" autocorrect="off"
             placeholder="${field.placeholder}"
-            class="w-full min-h-[48px] rounded-xl border border-vault-border bg-white px-4 text-[15px] placeholder:text-vault-muted/70 focus:border-vault-primary transition-colors">
+            class="field-input w-full min-h-[48px] rounded-xl border border-black/10 dark:border-white/15 glass px-4 text-[15px] placeholder:text-mutedlight/60 focus:border-primary outline-none">
+          <p id="${field.id}-msg" class="text-[12px] text-mutedlight dark:text-slate-500 mt-1.5 tracking-wide"></p>
         `;
       }
       dynamicFields.appendChild(wrap);
     });
 
-    // Wire up show/hide toggles for every secure field just created
+    // Wire up show/hide toggles
     dynamicFields.querySelectorAll('[data-toggle-for]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const input = document.getElementById(btn.dataset.toggleFor);
@@ -440,34 +677,60 @@
         input.type = isHidden ? 'text' : 'password';
         btn.innerHTML = isHidden ? EYE_CLOSED : EYE_OPEN;
         btn.setAttribute('aria-pressed', String(isHidden));
-        btn.setAttribute('aria-label', (isHidden ? 'Hide ' : 'Show ') + btn.closest('div').previousElementSibling.textContent);
       });
     });
+
+    // Wire up help buttons for the newly created fields
+    dynamicFields.querySelectorAll('[data-help]').forEach((btn) => {
+      btn.addEventListener('click', () => openHelp(btn.dataset.help));
+    });
+
+    // Real-time pre-flight validation as the client types
+    platform.fields.forEach((field) => {
+      const input = document.getElementById(field.id);
+      const msg = document.getElementById(field.id + '-msg');
+      let debounceTimer = null;
+      input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => validateField(field, input, msg), 220);
+      });
+      input.addEventListener('blur', () => validateField(field, input, msg, true));
+    });
+  }
+
+  function validateField(field, input, msg, force) {
+    const value = input.value.trim();
+    input.classList.remove('field-invalid', 'field-valid');
+    if (!value) {
+      msg.textContent = '';
+      msg.className = 'text-[12px] text-mutedlight dark:text-slate-500 mt-1.5 tracking-wide';
+      return true;
+    }
+    const isValid = !field.pattern || field.pattern.test(value);
+    if (isValid) {
+      input.classList.add('field-valid');
+      msg.textContent = 'Looks good.';
+      msg.className = 'text-[12px] text-success mt-1.5 tracking-wide';
+    } else if (force || value.length > 3) {
+      input.classList.add('field-invalid');
+      msg.textContent = field.error;
+      msg.className = 'text-[12px] text-danger mt-1.5 tracking-wide';
+    }
+    return isValid;
   }
 
   // =====================================================================
   // Navigation
   // =====================================================================
   backBtn.addEventListener('click', () => {
-    screenForm.classList.add('hidden');
-    screenPlatform.classList.remove('hidden');
-    screenPlatform.classList.add('fade-in');
+    screenForm.classList.add('screen-hidden');
+    screenPlatform.classList.remove('screen-hidden');
+    screenPlatform.classList.add('screen-enter-left');
+    requestAnimationFrame(() => screenPlatform.classList.remove('screen-enter-left'));
     hideError();
-    resetStepIndicator();
+    setProgress(8, 1);
     window.scrollTo({ top: 0, behavior: 'auto' });
   });
-
-  function resetStepIndicator() {
-    stepDot1.classList.add('bg-vault-primary', 'text-white');
-    stepDot1.classList.remove('bg-vault-successSoft', 'text-vault-success');
-    stepDot1.textContent = '1';
-    stepLabel1.classList.add('text-vault-ink');
-    stepLabel1.classList.remove('text-vault-muted');
-    stepDot2.classList.add('bg-vault-border', 'text-vault-muted');
-    stepDot2.classList.remove('bg-vault-primary', 'text-white');
-    stepLabel2.classList.add('text-vault-muted');
-    stepLabel2.classList.remove('text-vault-ink');
-  }
 
   function showError(message) {
     errorText.textContent = message;
@@ -482,6 +745,7 @@
   function setLoading(isLoading) {
     loadingOverlay.classList.toggle('hidden', !isLoading);
     submitBtn.disabled = isLoading;
+    submitBtn.classList.toggle('shimmer', isLoading);
     backBtn.disabled = isLoading;
   }
 
@@ -505,13 +769,20 @@
       return;
     }
 
-    // Gather + validate dynamic fields
+    // Pre-flight validation: gather + validate every dynamic field
     const credentials = {};
     for (const field of platform.fields) {
       const input = document.getElementById(field.id);
+      const msg = document.getElementById(field.id + '-msg');
       const value = input.value.trim();
+
       if (field.required && !value) {
         showError(`"${field.label}" is required to complete the connection.`);
+        input.focus();
+        return;
+      }
+      if (!validateField(field, input, msg, true)) {
+        showError(`Please double-check "${field.label}" — ${field.error}`);
         input.focus();
         return;
       }
@@ -571,20 +842,24 @@
     // Clear all in-memory credential values immediately — nothing lingers
     // in the DOM once the submission has been accepted.
     credentialForm.reset();
+    dynamicFields.querySelectorAll('input').forEach((el) => el.classList.remove('field-valid', 'field-invalid'));
 
     successCopy.textContent = `Your ${platformLabel} credentials were verified and securely stored in our vault. A confirmation will be sent to ${email}.`;
-    screenForm.classList.add('hidden');
-    screenSuccess.classList.remove('hidden');
-    screenSuccess.classList.add('fade-in');
+    screenForm.classList.add('screen-hidden');
+    screenSuccess.classList.remove('screen-hidden');
+    screenSuccess.classList.add('screen-enter-right');
+    requestAnimationFrame(() => screenSuccess.classList.remove('screen-enter-right'));
+    setProgress(100, 2);
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   submitAnotherBtn.addEventListener('click', () => {
     state.selectedPlatform = null;
-    screenSuccess.classList.add('hidden');
-    screenPlatform.classList.remove('hidden');
-    screenPlatform.classList.add('fade-in');
-    resetStepIndicator();
+    screenSuccess.classList.add('screen-hidden');
+    screenPlatform.classList.remove('screen-hidden');
+    screenPlatform.classList.add('screen-enter-left');
+    requestAnimationFrame(() => screenPlatform.classList.remove('screen-enter-left'));
+    setProgress(8, 1);
     document.querySelectorAll('.platform-card').forEach((el) => el.setAttribute('aria-pressed', 'false'));
     window.scrollTo({ top: 0, behavior: 'auto' });
   });
@@ -593,6 +868,7 @@
   // Init
   // =====================================================================
   buildPlatformGrid();
+  setProgress(8, 1);
 
   // Register the Service Worker (app-shell offline caching only — the
   // webhook POST above is never touched by the Service Worker).
