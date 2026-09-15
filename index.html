@@ -162,17 +162,56 @@
     border: 1px solid rgba(255,255,255,0.10);
   }
 
-  /* ===================== Screen transitions ===================== */
-  .screen { transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.22,1,0.36,1); }
-  .screen-hidden { opacity: 0; transform: translateY(10px) scale(0.99); position: absolute; pointer-events: none; }
-  .screen-enter-left { opacity: 0; transform: translateX(18px); }
-  .screen-enter-right { opacity: 0; transform: translateX(-18px); }
+  /* =====================================================================
+     Screen transitions — native iOS push/pop feel:
+     the incoming screen slides in fully from the right; the outgoing
+     screen "recedes" partway to the left with a subtle dark scrim, the
+     same parallax UINavigationController uses. Only `transform` (and the
+     scrim's `opacity`) ever animate, so this stays on the compositor
+     thread and holds 60fps even on an iPhone 8 Plus's A11 GPU.
+     ===================================================================== */
+  .screen { position: relative; }
+  .screen-offscreen { display: none; }
+  .screen.screen-transitioning {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    border-radius: 20px;
+    background: rgba(243,245,255,0.94);
+    transition: transform 0.38s cubic-bezier(0.16,1,0.3,1);
+    will-change: transform;
+  }
+  html.dark .screen.screen-transitioning { background: rgba(9,10,20,0.94); }
+  .screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    transition: opacity 0.38s ease;
+  }
+  .screen.is-receding::after { opacity: 0.16; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .screen.screen-transitioning { transition: none; }
+  }
+
+  /* ===================== Universal tap squish (Visual Haptics) =====================
+     Since navigator.vibrate() is unavailable in iOS Safari, every tappable
+     control gets an instant scale-down + slight dim on :active, snapping
+     back the moment the finger lifts — a purely visual stand-in for a
+     physical button's tactile feedback. */
+  .tap-squish {
+    transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1), filter 0.12s ease;
+  }
+  .tap-squish:active { transform: scale(0.94); filter: brightness(0.9); }
 
   /* ===================== Platform cards ===================== */
   .platform-card {
-    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease, filter 0.12s ease;
   }
-  .platform-card:active { transform: scale(0.96); }
+  .platform-card:active { transform: scale(0.96); filter: brightness(0.95); }
   .platform-card[aria-pressed="true"] {
     border-color: rgba(74,58,255,0.55);
     box-shadow: 0 0 0 3px rgba(74,58,255,0.18), 0 12px 28px rgba(74,58,255,0.18);
@@ -201,9 +240,9 @@
   .btn-primary {
     background: linear-gradient(180deg, #5A4BFF 0%, #4A3AFF 100%);
     box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 10px 24px rgba(74,58,255,0.35);
-    transition: transform 0.18s ease, box-shadow 0.25s ease, filter 0.25s ease;
+    transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, filter 0.12s ease;
   }
-  .btn-primary:active { transform: scale(0.98); filter: brightness(0.96); }
+  .btn-primary:active { transform: scale(0.96); filter: brightness(0.92); }
   .btn-primary:disabled { filter: grayscale(0.15) brightness(0.92); }
 
   .shimmer { position: relative; overflow: hidden; }
@@ -285,7 +324,7 @@
         <p class="text-[11.5px] text-mutedlight dark:text-slate-400 leading-tight tracking-wide">Credential Intake Portal</p>
       </div>
       <button id="themeToggle" type="button" aria-label="Switch to dark mode"
-        class="w-11 h-11 rounded-xl glass flex items-center justify-center shrink-0 active:scale-90 transition-transform">
+        class="tap-squish w-11 h-11 rounded-xl glass flex items-center justify-center shrink-0">
         <svg id="themeIconSun" class="theme-icon" width="19" height="19" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="4.2" stroke="#4A3AFF" stroke-width="1.8"/>
           <path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" stroke="#4A3AFF" stroke-width="1.8" stroke-linecap="round"/>
@@ -307,7 +346,7 @@
       </div>
     </div>
 
-    <main class="flex-1 relative">
+    <main id="mainStage" class="flex-1 relative overflow-hidden">
 
       <!-- ============ SCREEN 1: Platform selector ============ -->
       <section id="screenPlatform" class="screen">
@@ -322,8 +361,8 @@
       </section>
 
       <!-- ============ SCREEN 2: Credential form ============ -->
-      <section id="screenForm" class="screen screen-hidden">
-        <button id="backBtn" type="button" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-mutedlight dark:text-slate-400 mb-3 min-h-[44px] -ml-2 pl-2 pr-3 rounded-lg active:bg-black/5 dark:active:bg-white/10">
+      <section id="screenForm" class="screen screen-offscreen">
+        <button id="backBtn" type="button" class="tap-squish inline-flex items-center gap-1.5 text-[13px] font-semibold text-mutedlight dark:text-slate-400 mb-3 min-h-[44px] -ml-2 pl-2 pr-3 rounded-lg active:bg-black/5 dark:active:bg-white/10">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Back
         </button>
@@ -357,7 +396,7 @@
           <div class="mb-4">
             <div class="flex items-center justify-between mb-1.5">
               <label for="clientEmail" class="text-[13px] font-semibold text-ink dark:text-slate-100 tracking-tight">Your work email</label>
-              <button type="button" class="help-btn w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="clientEmail" aria-label="How to find your work email">
+              <button type="button" class="help-btn tap-squish w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="clientEmail" aria-label="How to find your work email">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.6"/><path d="M9.7 9.3a2.3 2.3 0 1 1 3.4 2c-.7.5-1.1.9-1.1 1.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
               </button>
             </div>
@@ -383,7 +422,7 @@
       </section>
 
       <!-- ============ SCREEN 3: Success ============ -->
-      <section id="screenSuccess" class="screen screen-hidden text-center pt-6">
+      <section id="screenSuccess" class="screen screen-offscreen text-center pt-6">
         <div class="w-20 h-20 rounded-full glass-strong shadow-glass dark:shadow-glassDark flex items-center justify-center mx-auto mb-5">
           <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="#0F9D74" stroke-width="1.6"/>
@@ -393,7 +432,7 @@
         <h1 class="text-[21px] font-bold font-display mb-2 tracking-tight">Credentials received</h1>
         <p id="successCopy" class="text-[14px] text-mutedlight dark:text-slate-400 leading-relaxed mb-8 px-2 tracking-wide"></p>
         <button id="submitAnotherBtn" type="button"
-          class="w-full min-h-[52px] rounded-2xl glass shadow-glass dark:shadow-glassDark text-ink dark:text-slate-100 text-[15px] font-bold font-display tracking-tight active:scale-[0.98] transition-transform">
+          class="tap-squish w-full min-h-[52px] rounded-2xl glass shadow-glass dark:shadow-glassDark text-ink dark:text-slate-100 text-[15px] font-bold font-display tracking-tight">
           Submit another credential
         </button>
       </section>
@@ -402,7 +441,7 @@
 
     <footer class="pt-6 pb-2">
       <p class="text-[11px] text-mutedlight dark:text-slate-500 text-center leading-relaxed tracking-wide">Encrypted in transit · Never stored in this browser<br>© <span id="year"></span> Secure Vault</p>
-      <button id="shareBtn" type="button" class="hidden mx-auto mt-3 min-h-[40px] px-3 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-glow tracking-wide active:opacity-60 transition-opacity">
+      <button id="shareBtn" type="button" class="hidden tap-squish mx-auto mt-3 min-h-[40px] px-3 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-glow tracking-wide">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Share Portal Link
       </button>
@@ -425,7 +464,7 @@
       <div class="w-10 h-1.5 rounded-full bg-black/15 dark:bg-white/20 mx-auto mb-4"></div>
       <div class="flex items-start justify-between gap-3 mb-2">
         <h2 id="helpTitle" class="text-[16.5px] font-bold font-display tracking-tight leading-snug"></h2>
-        <button id="helpCloseBtn" type="button" aria-label="Close" class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10">
+        <button id="helpCloseBtn" type="button" aria-label="Close" class="tap-squish w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </div>
@@ -692,6 +731,12 @@
   // =====================================================================
   const state = { selectedPlatform: null, clientTag: clientTagFromUrl };
 
+  // Tracks which screen is currently on top, and guards against starting
+  // a second transition while one is still animating (e.g. a rapid
+  // double-tap or a swipe fired mid-transition).
+  let currentScreen = 'platform'; // 'platform' | 'form' | 'success'
+  let isTransitioning = false;
+
   // ---- Element refs ------------------------------------------------
   const screenPlatform = document.getElementById('screenPlatform');
   const screenForm = document.getElementById('screenForm');
@@ -794,6 +839,111 @@
     });
   }
 
+  // =====================================================================
+  // navigateTo() — drives every screen change with a genuine iOS-style
+  // push/pop: the incoming screen slides fully in from the right; the
+  // outgoing screen recedes ~28% to the left under a soft dark scrim
+  // (exactly how UINavigationController parallaxes a push/pop). Only
+  // `transform` and the scrim's `opacity` ever animate, so the whole
+  // thing stays on the compositor thread — no layout/paint thrashing,
+  // which is what keeps this smooth on an iPhone 8 Plus's A11 GPU.
+  //
+  // direction: 'forward' (new screen enters from the right) or
+  //            'back'    (previous screen returns from its receded spot)
+  // =====================================================================
+  const RECEDE_TRANSFORM = 'translateX(-28%)';
+  const OFFSCREEN_RIGHT_TRANSFORM = 'translateX(100%)';
+  const CENTER_TRANSFORM = 'translateX(0)';
+
+  function navigateTo(fromEl, toEl, direction, onSettled) {
+    if (isTransitioning || fromEl === toEl) return;
+    isTransitioning = true;
+
+    const stage = document.getElementById('mainStage');
+
+    // Measure the incoming screen's natural height without it being
+    // visible yet, so the stage can be pinned tall enough to fit
+    // whichever of the two screens is taller for the transition's
+    // duration — otherwise the absolutely-positioned screens would
+    // collapse the stage to 0 height and the footer would jump.
+    toEl.classList.remove('screen-offscreen');
+    toEl.style.visibility = 'hidden';
+    toEl.style.position = 'absolute';
+    toEl.style.top = '0'; toEl.style.left = '0'; toEl.style.right = '0';
+    const toHeight = toEl.offsetHeight;
+    toEl.style.visibility = '';
+
+    const fromHeight = fromEl.offsetHeight;
+    stage.style.minHeight = Math.max(fromHeight, toHeight) + 'px';
+
+    fromEl.classList.add('screen-transitioning');
+    toEl.classList.add('screen-transitioning');
+    fromEl.style.top = '0'; fromEl.style.left = '0'; fromEl.style.right = '0';
+
+    if (direction === 'forward') {
+      fromEl.style.zIndex = '1';
+      toEl.style.zIndex = '2';
+      fromEl.style.transform = CENTER_TRANSFORM;
+      toEl.style.transform = OFFSCREEN_RIGHT_TRANSFORM;
+    } else {
+      fromEl.style.zIndex = '2';
+      toEl.style.zIndex = '1';
+      fromEl.style.transform = CENTER_TRANSFORM;
+      toEl.style.transform = RECEDE_TRANSFORM;
+      toEl.classList.add('is-receding');
+    }
+
+    // Force layout so the browser registers the starting transforms
+    // above before we change them below — without this the two style
+    // writes would get batched together and there'd be nothing to
+    // animate from.
+    void toEl.offsetWidth;
+
+    requestAnimationFrame(() => {
+      if (direction === 'forward') {
+        fromEl.classList.add('is-receding');
+        fromEl.style.transform = RECEDE_TRANSFORM;
+        toEl.style.transform = CENTER_TRANSFORM;
+      } else {
+        fromEl.style.transform = OFFSCREEN_RIGHT_TRANSFORM;
+        toEl.classList.remove('is-receding');
+        toEl.style.transform = CENTER_TRANSFORM;
+      }
+    });
+
+    let hasSettled = false;
+    const cleanup = () => {
+      if (hasSettled) return;
+      hasSettled = true;
+
+      fromEl.classList.remove('screen-transitioning', 'is-receding');
+      fromEl.classList.add('screen-offscreen');
+      fromEl.style.position = '';
+      fromEl.style.top = ''; fromEl.style.left = ''; fromEl.style.right = '';
+      fromEl.style.transform = ''; fromEl.style.zIndex = '';
+
+      toEl.classList.remove('screen-transitioning', 'is-receding');
+      toEl.style.position = '';
+      toEl.style.top = ''; toEl.style.left = ''; toEl.style.right = '';
+      toEl.style.transform = ''; toEl.style.zIndex = '';
+
+      stage.style.minHeight = '';
+      isTransitioning = false;
+      if (typeof onSettled === 'function') onSettled();
+    };
+
+    // The transform is the only property that actually changes value in
+    // both directions, so its transitionend reliably marks completion.
+    fromEl.addEventListener('transitionend', cleanup, { once: true });
+
+    // Safety net: if prefers-reduced-motion strips the transition (see
+    // CSS) or a transitionend is ever swallowed, don't leave the UI stuck
+    // mid-transition forever.
+    setTimeout(() => { if (isTransitioning) cleanup(); }, 500);
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
   function selectPlatform(key) {
     state.selectedPlatform = key;
     const platform = PLATFORMS[key];
@@ -810,11 +960,7 @@
     hideError();
     setProgress(55, 2);
 
-    screenPlatform.classList.add('screen-hidden');
-    screenForm.classList.remove('screen-hidden');
-    screenForm.classList.add('screen-enter-right');
-    requestAnimationFrame(() => screenForm.classList.remove('screen-enter-right'));
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    navigateTo(screenPlatform, screenForm, 'forward', () => { currentScreen = 'form'; });
   }
 
   function buildDynamicFields(platform) {
@@ -826,7 +972,7 @@
       const labelRow = `
         <div class="flex items-center justify-between mb-1.5">
           <label for="${field.id}" class="text-[13px] font-semibold text-ink dark:text-slate-100 tracking-tight">${field.label}</label>
-          <button type="button" class="help-btn w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="${field.id}" aria-label="How to find ${field.label}">
+          <button type="button" class="help-btn tap-squish w-9 h-9 -mr-1.5 rounded-full flex items-center justify-center text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10" data-help="${field.id}" aria-label="How to find ${field.label}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.6"/><path d="M9.7 9.3a2.3 2.3 0 1 1 3.4 2c-.7.5-1.1.9-1.1 1.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
           </button>
         </div>`;
@@ -840,7 +986,7 @@
               placeholder="${field.placeholder}"
               class="field-input w-full min-h-[48px] rounded-xl border border-black/10 dark:border-white/15 glass pl-4 pr-12 text-[15px] placeholder:text-mutedlight/60 focus:border-primary outline-none">
             <button type="button" data-toggle-for="${field.id}"
-              class="absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10"
+              class="tap-squish absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-lg text-mutedlight dark:text-slate-400 active:bg-black/5 dark:active:bg-white/10"
               aria-label="Show ${field.label}" aria-pressed="false">
               ${EYE_OPEN}
             </button>
@@ -914,14 +1060,48 @@
   // Navigation
   // =====================================================================
   backBtn.addEventListener('click', () => {
-    screenForm.classList.add('screen-hidden');
-    screenPlatform.classList.remove('screen-hidden');
-    screenPlatform.classList.add('screen-enter-left');
-    requestAnimationFrame(() => screenPlatform.classList.remove('screen-enter-left'));
+    if (isTransitioning) return;
     hideError();
     setProgress(8, 1);
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    navigateTo(screenForm, screenPlatform, 'back', () => { currentScreen = 'platform'; });
   });
+
+  // =====================================================================
+  // Swipe-to-go-back — a native iOS edge-swipe gesture. Starting the
+  // touch within the leftmost ~24px of the screen while on the form step
+  // and swiping right past the threshold triggers the exact same path as
+  // tapping Back, so there's only one place that owns "going back."
+  // =====================================================================
+  const SWIPE_EDGE_ZONE_PX = 24;
+  const SWIPE_TRIGGER_DISTANCE_PX = 70;
+  let swipeStartX = null;
+  let swipeStartY = null;
+  let swipeTrackingActive = false;
+
+  document.addEventListener('touchstart', (e) => {
+    if (currentScreen !== 'form' || isTransitioning) { swipeTrackingActive = false; return; }
+    const touch = e.touches[0];
+    if (touch.clientX <= SWIPE_EDGE_ZONE_PX) {
+      swipeStartX = touch.clientX;
+      swipeStartY = touch.clientY;
+      swipeTrackingActive = true;
+    } else {
+      swipeTrackingActive = false;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    if (!swipeTrackingActive) return;
+    swipeTrackingActive = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - swipeStartX;
+    const dy = touch.clientY - swipeStartY;
+    // Require a mostly-horizontal rightward swipe so a diagonal scroll
+    // gesture near the edge doesn't accidentally trigger a navigation.
+    if (dx > SWIPE_TRIGGER_DISTANCE_PX && Math.abs(dy) < dx * 0.6) {
+      backBtn.click();
+    }
+  }, { passive: true });
 
   function showError(message) {
     errorText.textContent = message;
@@ -1051,23 +1231,16 @@
     dynamicFields.querySelectorAll('input').forEach((el) => el.classList.remove('field-valid', 'field-invalid'));
 
     successCopy.textContent = `Your ${platformLabel} credentials were verified and securely stored in our vault. A confirmation will be sent to ${email}.`;
-    screenForm.classList.add('screen-hidden');
-    screenSuccess.classList.remove('screen-hidden');
-    screenSuccess.classList.add('screen-enter-right');
-    requestAnimationFrame(() => screenSuccess.classList.remove('screen-enter-right'));
     setProgress(100, 2);
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    navigateTo(screenForm, screenSuccess, 'forward', () => { currentScreen = 'success'; });
   }
 
   submitAnotherBtn.addEventListener('click', () => {
+    if (isTransitioning) return;
     state.selectedPlatform = null;
-    screenSuccess.classList.add('screen-hidden');
-    screenPlatform.classList.remove('screen-hidden');
-    screenPlatform.classList.add('screen-enter-left');
-    requestAnimationFrame(() => screenPlatform.classList.remove('screen-enter-left'));
     setProgress(8, 1);
     document.querySelectorAll('.platform-card').forEach((el) => el.setAttribute('aria-pressed', 'false'));
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    navigateTo(screenSuccess, screenPlatform, 'back', () => { currentScreen = 'platform'; });
   });
 
   // =====================================================================
