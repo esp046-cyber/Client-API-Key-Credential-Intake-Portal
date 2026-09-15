@@ -402,6 +402,10 @@
 
     <footer class="pt-6 pb-2">
       <p class="text-[11px] text-mutedlight dark:text-slate-500 text-center leading-relaxed tracking-wide">Encrypted in transit · Never stored in this browser<br>© <span id="year"></span> Secure Vault</p>
+      <button id="shareBtn" type="button" class="hidden mx-auto mt-3 min-h-[40px] px-3 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-glow tracking-wide active:opacity-60 transition-opacity">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 7l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Share Portal Link
+      </button>
     </footer>
   </div>
 
@@ -571,6 +575,99 @@
     }
   };
 
+  // =====================================================================
+  // UI sound feedback — synthesized with the Web Audio API, no .mp3/.wav
+  // files needed. iOS Safari (including 16.x on an iPhone 8 Plus, where
+  // navigator.vibrate() doesn't exist) suspends AudioContext until a real
+  // user gesture unlocks it, so we create+resume it on the very first tap
+  // anywhere on the page and reuse that single context for every sound.
+  // =====================================================================
+  let audioCtx = null;
+
+  function ensureAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null; // Web Audio unsupported — sounds just won't play.
+    if (!audioCtx) {
+      try { audioCtx = new AudioContextClass(); } catch (_) { return null; }
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => { /* ignore — will retry on next gesture */ });
+    }
+    return audioCtx;
+  }
+
+  // Unlock audio on the very first tap/click anywhere, so later
+  // programmatic playback (e.g. the success chime, fired from inside an
+  // async fetch callback) is guaranteed to have an already-running context.
+  document.addEventListener('pointerdown', ensureAudioContext, { once: true, passive: true });
+
+  // Plays a single tone with a short attack/decay envelope so it reads as
+  // a soft "click"/"chime" note rather than a buzzy square-wave beep.
+  function playTone(ctx, { frequency, startTime, duration, peakGain, type }) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(frequency, startTime);
+
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.008);           // fast attack
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);    // smooth decay
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  // Subtle, low-frequency "muted tap" — fires the instant a platform card
+  // is tapped, before any screen transition, for immediate feedback.
+  function playClickSound() {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    try {
+      playTone(ctx, { frequency: 180, startTime: ctx.currentTime, duration: 0.055, peakGain: 0.06, type: 'sine' });
+    } catch (_) { /* never let a sound glitch break the UI */ }
+  }
+
+  // Pleasant two-tone ascending "success chime" — fires once the webhook
+  // (or the demo-mode simulation) confirms the submission succeeded.
+  function playSuccessChime() {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      playTone(ctx, { frequency: 587.33, startTime: now,        duration: 0.16, peakGain: 0.09, type: 'sine' }); // D5
+      playTone(ctx, { frequency: 880.00, startTime: now + 0.12, duration: 0.22, peakGain: 0.10, type: 'sine' }); // A5
+    } catch (_) { /* never let a sound glitch break the UI */ }
+  }
+
+  // =====================================================================
+  // Web Share API — only wired up (and only shown) when the browser
+  // actually supports navigator.share, per feature detection below.
+  // =====================================================================
+  function initShareButton() {
+    const shareBtn = document.getElementById('shareBtn');
+    if (!shareBtn) return;
+    if (!navigator.share) return; // Leave it hidden — no unsupported button shown.
+
+    shareBtn.classList.remove('hidden');
+    shareBtn.classList.add('flex');
+    shareBtn.addEventListener('click', async () => {
+      try {
+        await navigator.share({
+          title: 'Secure Credential Vault',
+          url: window.location.href
+        });
+      } catch (err) {
+        // AbortError just means the person dismissed the native share
+        // sheet — that's a normal, silent outcome, not a real failure.
+        if (err && err.name !== 'AbortError') {
+          console.warn('Share failed:', err);
+        }
+      }
+    });
+  }
+
   // Trims whitespace and strips control characters from a value before it
   // is validated or dispatched. Applied to every field, including every
   // API key/token, right before the payload is built — this prevents a
@@ -689,7 +786,10 @@
         <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:${iconBg(key)}">${ICONS[key]}</div>
         <span class="text-[13.5px] font-semibold font-display leading-snug tracking-tight">${platform.label}</span>
       `;
-      card.addEventListener('click', () => selectPlatform(key));
+      card.addEventListener('click', () => {
+        playClickSound();
+        selectPlatform(key);
+      });
       platformGrid.appendChild(card);
     });
   }
@@ -943,6 +1043,8 @@
   });
 
   function onSubmitSuccess(email, platformLabel) {
+    playSuccessChime();
+
     // Clear all in-memory credential values immediately — nothing lingers
     // in the DOM once the submission has been accepted.
     credentialForm.reset();
@@ -973,6 +1075,7 @@
   // =====================================================================
   buildPlatformGrid();
   setProgress(8, 1);
+  initShareButton();
 
   // Register the Service Worker (app-shell offline caching only — the
   // webhook POST above is never touched by the Service Worker).
